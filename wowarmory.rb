@@ -1,67 +1,52 @@
 #!/usr/bin/env ruby
 require 'net/http'
 require 'rexml/document'
+require 'cgi'
 include REXML
- 
-def get_xml_page(strRealm, strGuildName)
- 
-  oresp = Net::HTTP.start( "www.wowarmory.com") do |http|
-    http.get( "/guild-info.xml?r=#{strRealm}&n=#{strGuildName}",
-      { 'user-agent' =>
-        'Mozilla/5.0 (Windows; U; Windows NT 5.0; en-GB; rv:1.8.1.4) Gecko/20070515 Firefox/2.0.0.4'})
-  end
- 
-  return oresp
-end
- 
-def get_guild_info(xmlPage)
-  str_max_level = '80'
-  info_array = []
- 
+
+begin
+  type = {
+  	"1" => "Warrior",
+  	"2"  => "Paladin",
+  	"3"  => "Hunter",       
+  	"4"  => "Rogue",
+  	"5"  => "Priest",
+  	"6"  => "Death Knight",
+  	"7"  => "Shaman",
+  	"8"  => "Mage",
+  	"9"  => "Warlock",
+  	"11"  => "Druid"
+  }
+  type.default = "unknown"
+  
+  character_list = []
+
+  realm = 'Staghelm'
+  guildName = "Controlled Chaos"
+
+  xmlPage = Net::HTTP.start( "www.wowarmory.com").get( "/guild-info.xml?r=#{CGI.escape(realm)}&n=#{CGI.escape(guildName)}",
+      {'user-agent' => 'Mozilla/5.0 (Windows; U; Windows NT 5.0; en-GB; rv:1.8.1.4) Gecko/20070515 Firefox/2.0.0.4'})
+
   odoc = REXML::Document.new xmlPage.body
   odoc.elements.each( '*//character') do |oElement|
-    if oElement.attributes['level'] == str_max_level
-      info_array << [oElement.attributes['name'],oElement.attributes['level'], oElement.attributes['classId']]
+     	character = {
+  				"name" => oElement.attributes['name'], 
+  				"classId" => oElement.attributes['classId'].to_i,
+  				"class" => type[oElement.attributes['classId']],
+  				"level" => oElement.attributes['level'].to_i,
+  				"genderId" => oElement.attributes['genderId'].to_i,
+  				"raceId" => oElement.attributes['raceId'].to_i,
+  				"achPoints" => oElement.attributes['achPoints'].to_i,
+  				"guild" => guildName,
+  				"realm" => realm
+  		}
+      character_list << character
     end
-  end
- 
-  return info_array
+
+  puts "#{character_list.length} Character Found!"
+  puts "-" * 50
+  character_list.sort{|a,b| a['name'] <=> b['name']}.each { |character| 
+    puts "%-20s%-10s%s" %[character['name'],character['level'],character['class']]
+  }
+  puts "-" * 50
 end
- 
-def get_class_name(classId)
-    case classId
-        when "1"
-            return "Warrior"
-        when "2"
-            return "Paladin"
-        when "3"
-            return "Hunter"
-        when "4"
-            return "Rogue"
-        when "5"
-            return "Priest"
-        when "6"
-            return "Death Knight"
-        when "7"
-            return "Shaman"
-        when "8"
-            return "Mage"
-        when "9"
-            return "Warlock"
-        when "11"
-            return "Druid"
-        else
-            return "ERROR:#{classId}"
-    end
-end
- 
-str_realm = 'Staghelm'
-str_guild_name = "Controlled+Chaos"
- 
-xml_page = get_xml_page(str_realm, str_guild_name)
-character_list = get_guild_info(xml_page)
- 
-puts "#{character_list.length} Character Found!"
-puts "-------------------------"
-character_list.sort.each { |character| puts "%-20s%-10s%s" %[character[0],character[1],get_class_name(character[2])]}
-puts "-------------------------"
